@@ -8,14 +8,30 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Control, Controller, FieldValues, Path } from "react-hook-form";
 
-const formField = () => (
-  <FormField
-    control={form.control}
-    name="username"
+// the extends FieldValues> express that weather its a name, value or any what ever we pass to it it will take the form of the generic T paramater and we can use it in the formField component
+interface FormFieldProps<T extends FieldValues> {
+  control: Control<T>;
+  name: Path<T>;
+  label: string;
+  placeholder: string;
+  type?: "text" | "email" | "password" | "file";
+}
+
+const formField = ({
+  name,
+  control,
+  label,
+  placeholder,
+  type = "text",
+}: FormFieldProps<T>) => (
+  <Controller
+    name={name}
+    control={control}
     render={({ field }) => (
       <FormItem>
-        <FormLabel>Username</FormLabel>
+        <FormLabel className="label">Username</FormLabel>
         <FormControl>
           <Input placeholder="shadcn" {...field} />
         </FormControl>
