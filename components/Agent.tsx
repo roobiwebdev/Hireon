@@ -49,6 +49,8 @@ const Agent = ({ userName }: AgentProps) => {
             <h3>{userName}</h3>
           </div>
         </div>
+
+        <div></div>
       </div>
 
       {message.length > 0 && (
