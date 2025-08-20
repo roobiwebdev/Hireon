@@ -55,7 +55,7 @@ const authFormSchema = (type: FormType) => {
   });
 };
 
-// Previous/basic schema (uses Zod default messages like "String must contain at least X character(s)")
+
 const legacyAuthFormSchema = (type: FormType) => {
   return z.object({
     name: type === "sign-up" ? z.string().min(4) : z.string().optional(),
@@ -64,7 +64,6 @@ const legacyAuthFormSchema = (type: FormType) => {
   });
 };
 
-// Toggle which schema to use without changing call sites
 const USE_LEGACY_SCHEMA = false;
 
 const AuthForm = ({ type }: { type: FormType }) => {

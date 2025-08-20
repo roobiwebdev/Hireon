@@ -50,8 +50,9 @@ const Agent = ({ userName }: AgentProps) => {
           </div>
         </div>
 
-        <div></div>
       </div>
+
+
 
       {message.length > 0 && (
         <div className="transcript-border">
