@@ -150,13 +150,17 @@
   h3 {
     @apply text-2xl font-semibold;
   }
-  
+
   ul {
     @apply list-disc list-inside;
   }
   li {
     @apply text-light-100;
   }
+}
+
+.animate-ping {
+  animation: ping 8s cubic-bezier(0, 0, 0.9, 1) infinite;
 }
 
 @layer components {

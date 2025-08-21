@@ -14,7 +14,7 @@ const Agent = ({ userName }: AgentProps) => {
   const isSpeaking = true;
   const message = [
     "Whats your name?",
-    "My name is John Doe, nice to meet you!",
+    "How would you design and implement a rate limiter for an API (e.g., max 100 requests per user per minute)?",
   ];
   const lastMessage = message[message.length - 1];
 
@@ -49,10 +49,7 @@ const Agent = ({ userName }: AgentProps) => {
             <h3>{userName}</h3>
           </div>
         </div>
-
       </div>
-
-
 
       {message.length > 0 && (
         <div className="transcript-border">
