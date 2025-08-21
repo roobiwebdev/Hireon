@@ -159,9 +159,6 @@
   }
 }
 
-.animate-ping {
-  animation: ping 8s cubic-bezier(0, 0, 0.9, 1) infinite;
-}
 
 @layer components {
   .btn-call {
