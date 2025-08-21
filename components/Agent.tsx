@@ -14,7 +14,7 @@ const Agent = ({ userName }: AgentProps) => {
   const isSpeaking = true;
   const message = [
     "Whats your name?",
-    "How would you design and implement a rate limiter for an API (e.g., max 100 requests per user per minute)?",
+    "My name is John Doe, nice to meet you!",
   ];
   const lastMessage = message[message.length - 1];
 
