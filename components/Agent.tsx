@@ -14,7 +14,7 @@ const Agent = ({ userName }: AgentProps) => {
   const isSpeaking = true;
   const message = [
     "Whats your name?",
-    "My name is John Doe, nice to meet you!",
+    "Can you give an example of when you’d need use client?",
   ];
   const lastMessage = message[message.length - 1];
 
