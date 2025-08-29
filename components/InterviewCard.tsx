@@ -6,6 +6,7 @@ import Link from "next/link";
 import DisplayTechIcons from "./DisplayTechIcons";
 
 interface InterviewCardProps {
+  id?: string; // Add id field to match the Interview interface
   interviewId?: string;
   userId?: string;
   role: string;
@@ -15,6 +16,7 @@ interface InterviewCardProps {
 }
 
 const InterviewCard = ({
+  id,
   interviewId,
   userId,
   role,
@@ -27,6 +29,9 @@ const InterviewCard = ({
   const formattedDate = dayjs(
     feedback?.createdAt || createdAt || Date.now()
   ).format("MMM D, YYYY");
+
+  // Use id if available, otherwise fall back to interviewId
+  const actualInterviewId = id || interviewId;
 
   return (
     <div className="card-border w-[360px] max-sm:w-full min-h-96">
@@ -78,8 +83,8 @@ const InterviewCard = ({
             <Link
               href={
                 feedback
-                  ? `/interview/${interviewId}/feedback`
-                  : `/interview/${interviewId}`
+                  ? `/interview/${actualInterviewId}/feedback`
+                  : `/interview/${actualInterviewId}`
               }
             >
               {feedback ? "Check Feedback" : "Take Interview"}

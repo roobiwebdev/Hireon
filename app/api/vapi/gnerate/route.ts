@@ -10,7 +10,25 @@ export async function GET() {
 export async function POST(req: Request) {
   const { type, role, level, techstack, amount, userid } = await req.json();
 
+  // Validate required fields
+  if (!type || !role || !level || !techstack || !amount || !userid) {
+    console.error("Missing required fields:", {
+      type,
+      role,
+      level,
+      techstack,
+      amount,
+      userid,
+    });
+    return Response.json(
+      { success: false, error: "Missing required fields" },
+      { status: 400 }
+    );
+  }
+
   try {
+    console.log("Starting interview generation for user:", userid);
+
     const { text: questions } = await generateText({
       model: google("gemini-2.0-flash-001"),
       prompt: `Prepare questions for a job interview.
@@ -27,6 +45,8 @@ export async function POST(req: Request) {
         Thank you! <3`,
     });
 
+    console.log("Generated questions:", questions);
+
     const interview = {
       role,
       type,
@@ -36,16 +56,39 @@ export async function POST(req: Request) {
       userId: userid,
       createdAt: new Date().toISOString(),
       coverImage: getRandomInterviewCover(),
+      finalized: false, // Add this field so interviews appear in "Your Interviews" section
     };
 
-    await db.collection("interviews").add(interview);
+    console.log("Saving interview to database:", interview);
 
-    return Response.json({ success: true, data: interview }, { status: 200 });
-  } catch (error) {
-    console.error(error);
+    // Test database connection first
+    try {
+      const testQuery = await db.collection("interviews").limit(1).get();
+      console.log(
+        "Database connection test successful, existing interviews count:",
+        testQuery.size
+      );
+    } catch (dbTestError) {
+      console.error("Database connection test failed:", dbTestError);
+      throw new Error(`Database connection failed: ${dbTestError}`);
+    }
+
+    const docRef = await db.collection("interviews").add(interview);
+    console.log("Interview saved successfully with ID:", docRef.id);
 
     return Response.json(
-      { success: false, error: "Internal Server Error" },
+      { success: true, data: { ...interview, id: docRef.id } },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error generating or saving interview:", error);
+
+    return Response.json(
+      {
+        success: false,
+        error: "Internal Server Error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

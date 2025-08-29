@@ -23,6 +23,7 @@ interface Interview {
   userId: string;
   type: string;
   finalized: boolean;
+  coverImage?: string; // Add this field for generated interviews
 }
 
 interface CreateFeedbackParams {

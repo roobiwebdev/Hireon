@@ -103,8 +103,6 @@ export async function getCurrentUser(): Promise<User | null> {
       ...userRecord.data(),
       id: userRecord.id,
     } as User;
-
-
   } catch (error) {
     console.log(error);
 
@@ -113,7 +111,86 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function isAuthenticated() {
-    const user = await getCurrentUser();
+  const user = await getCurrentUser();
 
-    return !!user;
+  return !!user;
+}
+
+export async function getInterviewsByUserId(
+  userId: string
+): Promise<Interview[] | null> {
+  const interviews = await db
+    .collection("interviews")
+    .where("userId", "==", userId)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Interview[];
+}
+
+export async function getLatestInterviews(
+  params: GetLatestInterviewsParams
+): Promise<Interview[] | null> {
+  const { userId, limit = 20 } = params;
+
+  const interviews = await db
+    .collection("interviews")
+    .orderBy("createdAt", "desc")
+    .where("finalized", "==", true)
+    .where("userId", "!=", userId)
+    .limit(limit)
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Interview[];
+}
+
+export async function getAvailableInterviews(
+  userId: string,
+  limit: number = 20
+): Promise<Interview[] | null> {
+  try {
+    // Get all interviews that haven't been finalized yet
+    const availableInterviews = await db
+      .collection("interviews")
+      .where("finalized", "==", false)
+      .limit(limit * 2) // Get more to account for filtering
+      .get();
+
+    // Filter and process the results
+    const interviews = availableInterviews.docs
+      .map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          } as Interview)
+      )
+      .filter((interview) => {
+        // Include interviews from other users
+        if (interview.userId !== userId) {
+          return true;
+        }
+        // Include user's own interviews that haven't been taken
+        return interview.finalized === false;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, limit);
+
+    console.log(
+      `Found ${interviews.length} available interviews for user ${userId}`
+    );
+    return interviews;
+  } catch (error) {
+    console.error("Error fetching available interviews:", error);
+    return null;
+  }
 }
