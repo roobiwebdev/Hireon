@@ -3,100 +3,114 @@
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
 
-export async function signUp(parms: SignUpParams) {
-  const { uid, name, email } = parms;
+// Session duration (1 week)
+const SESSION_DURATION = 60 * 60 * 24 * 7;
 
-  try {
-    const userRecord = await db.collection("users").doc(uid).get();
-
-    if (userRecord.exists) {
-      return {
-        success: false,
-        message: "User already exists. Please sign in instaid..",
-      };
-    }
-
-    await db.collection("users").doc(uid).set({ name, email });
-
-    return {
-      success: true,
-      message: "Account created successfully",
-    };
-  } catch (err: unknown) {
-    console.error("Error creating a user", err);
-
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code?: string }).code === "auth/email-already-exists"
-    ) {
-      return {
-        success: false,
-        message: "This email is already in use.",
-      };
-    }
-
-    return {
-      success: false,
-      message: "Failed to create an account",
-    };
-  }
-}
-
-export async function signIn(parms: SignInParams) {
-  const { email, idToken } = parms;
-
-  try {
-    const userRecord = await auth.getUserByEmail(email);
-
-    if (!userRecord) {
-      return {
-        success: false,
-        message: "User not found. Please sign up first.",
-      };
-    }
-
-    await setSession(idToken);
-  } catch (error) {
-    console.error(error);
-
-    return {
-      success: false,
-      message: "Failed to log into an account.",
-    };
-  }
-}
-
-export async function setSession(idToken: string) {
+// Set session cookie
+export async function setSessionCookie(idToken: string) {
   const cookieStore = await cookies();
-  const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
 
-  const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+  // Create session cookie
+  const sessionCookie = await auth.createSessionCookie(idToken, {
+    expiresIn: SESSION_DURATION * 1000, // milliseconds
+  });
 
-  cookieStore.set("__session", sessionCookie, {
+  // Set cookie in the browser
+  cookieStore.set("session", sessionCookie, {
+    maxAge: SESSION_DURATION,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    maxAge: expiresIn,
     path: "/",
     sameSite: "lax",
   });
 }
 
+export async function signUp(params: SignUpParams) {
+  const { uid, name, email } = params;
+
+  try {
+    // check if user exists in db
+    const userRecord = await db.collection("users").doc(uid).get();
+    if (userRecord.exists)
+      return {
+        success: false,
+        message: "User already exists. Please sign in.",
+      };
+
+    // save user to db
+    await db.collection("users").doc(uid).set({
+      name,
+      email,
+      // profileURL,
+      // resumeURL,
+    });
+
+    return {
+      success: true,
+      message: "Account created successfully. Please sign in.",
+    };
+  } catch (error: any) {
+    console.error("Error creating user:", error);
+
+    // Handle Firebase specific errors
+    if (error.code === "auth/email-already-exists") {
+      return {
+        success: false,
+        message: "This email is already in use",
+      };
+    }
+
+    return {
+      success: false,
+      message: "Failed to create account. Please try again.",
+    };
+  }
+}
+
+export async function signIn(params: SignInParams) {
+  const { email, idToken } = params;
+
+  try {
+    const userRecord = await auth.getUserByEmail(email);
+    if (!userRecord)
+      return {
+        success: false,
+        message: "User does not exist. Create an account.",
+      };
+
+    await setSessionCookie(idToken);
+  } catch (error: any) {
+    console.log("");
+
+    return {
+      success: false,
+      message: "Failed to log into account. Please try again.",
+    };
+  }
+}
+
+// Sign out user by clearing the session cookie
+export async function signOut() {
+  const cookieStore = await cookies();
+
+  cookieStore.delete("session");
+}
+
+// Get current user from session cookie
 export async function getCurrentUser(): Promise<User | null> {
   const cookieStore = await cookies();
 
-  const sessionCookie = cookieStore.get("__session")?.value;
-
+  const sessionCookie = cookieStore.get("session")?.value;
   if (!sessionCookie) return null;
+
   try {
     const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
 
+    // get user info from db
     const userRecord = await db
       .collection("users")
       .doc(decodedClaims.uid)
       .get();
-
     if (!userRecord.exists) return null;
 
     return {
@@ -106,91 +120,13 @@ export async function getCurrentUser(): Promise<User | null> {
   } catch (error) {
     console.log(error);
 
+    // Invalid or expired session
     return null;
   }
 }
 
+// Check if user is authenticated
 export async function isAuthenticated() {
   const user = await getCurrentUser();
-
   return !!user;
-}
-
-export async function getInterviewsByUserId(
-  userId: string
-): Promise<Interview[] | null> {
-  const interviews = await db
-    .collection("interviews")
-    .where("userId", "==", userId)
-    .orderBy("createdAt", "desc")
-    .get();
-
-  return interviews.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Interview[];
-}
-
-export async function getLatestInterviews(
-  params: GetLatestInterviewsParams
-): Promise<Interview[] | null> {
-  const { userId, limit = 20 } = params;
-
-  const interviews = await db
-    .collection("interviews")
-    .orderBy("createdAt", "desc")
-    .where("finalized", "==", true)
-    .where("userId", "!=", userId)
-    .limit(limit)
-    .get();
-
-  return interviews.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Interview[];
-}
-
-export async function getAvailableInterviews(
-  userId: string,
-  limit: number = 20
-): Promise<Interview[] | null> {
-  try {
-    // Get all interviews that haven't been finalized yet
-    const availableInterviews = await db
-      .collection("interviews")
-      .where("finalized", "==", false)
-      .limit(limit * 2) // Get more to account for filtering
-      .get();
-
-    // Filter and process the results
-    const interviews = availableInterviews.docs
-      .map(
-        (doc) =>
-          ({
-            id: doc.id,
-            ...doc.data(),
-          } as Interview)
-      )
-      .filter((interview) => {
-        // Include interviews from other users
-        if (interview.userId !== userId) {
-          return true;
-        }
-        // Include user's own interviews that haven't been taken
-        return interview.finalized === false;
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-      .slice(0, limit);
-
-    console.log(
-      `Found ${interviews.length} available interviews for user ${userId}`
-    );
-    return interviews;
-  } catch (error) {
-    console.error("Error fetching available interviews:", error);
-    return null;
-  }
 }

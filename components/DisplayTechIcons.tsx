@@ -1,7 +1,6 @@
-import { getTechLogos } from "@/lib/utils";
-// import { getTargetTriple } from "next/dist/build/swc/generated-native";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
+
+import { cn, getTechLogos } from "@/lib/utils";
 
 const DisplayTechIcons = async ({ techStack }: TechIconProps) => {
   const techIcons = await getTechLogos(techStack);
@@ -12,11 +11,12 @@ const DisplayTechIcons = async ({ techStack }: TechIconProps) => {
         <div
           key={tech}
           className={cn(
-            "relative group bg-dark-300 rounded-full p-2 flex-center size-10",
+            "relative group bg-dark-300 rounded-full p-2 flex flex-center",
             index >= 1 && "-ml-3"
           )}
         >
           <span className="tech-tooltip">{tech}</span>
+
           <Image
             src={url}
             alt={tech}
@@ -29,4 +29,5 @@ const DisplayTechIcons = async ({ techStack }: TechIconProps) => {
     </div>
   );
 };
+
 export default DisplayTechIcons;

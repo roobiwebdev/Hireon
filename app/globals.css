@@ -150,7 +150,6 @@
   h3 {
     @apply text-2xl font-semibold;
   }
-
   ul {
     @apply list-disc list-inside;
   }
@@ -158,7 +157,6 @@
     @apply text-light-100;
   }
 }
-
 
 @layer components {
   .btn-call {

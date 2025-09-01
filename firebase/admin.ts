@@ -1,21 +1,19 @@
-import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import * as path from "path";
 
-const initFirebaseAdmin = () => {
+// Initialize Firebase Admin SDK
+function initFirebaseAdmin() {
   const apps = getApps();
 
   if (!apps.length) {
-    // Use the service account JSON file directly
-    const serviceAccountPath = path.join(
-      process.cwd(),
-      "firebase",
-      "hireon-3467e-firebase-adminsdk-fbsvc-c33aa2c5c3.json"
-    );
-
     initializeApp({
-      credential: cert(serviceAccountPath),
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        // Replace newlines in the private key
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      }),
     });
   }
 
@@ -23,8 +21,6 @@ const initFirebaseAdmin = () => {
     auth: getAuth(),
     db: getFirestore(),
   };
-};
+}
 
-const adminServices = initFirebaseAdmin();
-export const auth = adminServices.auth;
-export const db = adminServices.db;
+export const { auth, db } = initFirebaseAdmin();
