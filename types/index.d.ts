@@ -36,6 +36,9 @@ interface User {
   name: string;
   email: string;
   id: string;
+  profileURL?: string;
+  resumeURL?: string;
+  font?: string;
 }
 
 interface InterviewCardProps {
@@ -96,4 +99,11 @@ interface InterviewFormProps {
 
 interface TechIconProps {
   techStack: string[];
+}
+
+interface UpdateUserProfileParams {
+  userId: string;
+  profileURL?: string;
+  resumeURL?: string;
+  font?: string;
 }

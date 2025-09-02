@@ -123,3 +123,24 @@ export async function getInterviewsByUserId(
     ...doc.data(),
   })) as Interview[];
 }
+
+export async function updateUserProfile(
+  params: UpdateUserProfileParams
+): Promise<{ success: boolean }> {
+  const { userId, profileURL, resumeURL, font } = params;
+
+  try {
+    const payload: Record<string, string> = {};
+    if (typeof profileURL === "string") payload.profileURL = profileURL;
+    if (typeof resumeURL === "string") payload.resumeURL = resumeURL;
+    if (typeof font === "string") payload.font = font;
+
+    if (Object.keys(payload).length === 0) return { success: true };
+
+    await db.collection("users").doc(userId).set(payload, { merge: true });
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return { success: false };
+  }
+}
