@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+import { PhoneOff, Repeat2 } from "lucide-react";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -145,6 +146,13 @@ const Agent = ({
     vapi.stop();
   };
 
+  const handleRepeat = () => {
+    if (lastMessage && callStatus === CallStatus.ACTIVE) {
+      // Send the last message back to the AI to repeat it
+      vapi.say(lastMessage);
+    }
+  };
+
   return (
     <>
       <div className="call-view">
@@ -178,18 +186,22 @@ const Agent = ({
         </div>
       </div>
 
-      {messages.length > 0 && (
+      {messages.filter((message) => message.role === "assistant").length >
+        0 && (
         <div className="transcript-border">
           <div className="transcript">
-            <p
-              key={lastMessage}
-              className={cn(
-                "transition-opacity duration-500 opacity-0",
-                "animate-fadeIn opacity-100"
-              )}
-            >
-              {lastMessage}
-            </p>
+            {messages
+              .filter((message) => message.role === "assistant")
+              .map((message, index) => (
+                <p
+                  key={`${message.role}-${index}-${message.content}`}
+                  className={cn(
+                    "mb-2 last:mb-0 transition-opacity duration-500 animate-fadeIn opacity-100"
+                  )}
+                >
+                  {message.content}
+                </p>
+              ))}
           </div>
         </div>
       )}
@@ -211,9 +223,26 @@ const Agent = ({
             </span>
           </button>
         ) : (
-          <button className="btn-disconnect" onClick={() => handleDisconnect()}>
-            End
-          </button>
+          <div className="flex justify-between gap-4">
+            <button
+              className="btn-repeat flex justify-between gap-1 items-center"
+              onClick={() => handleRepeat()}
+            >
+              <span>
+                <Repeat2 />
+              </span>
+              Repeat
+            </button>
+            <button
+              className="btn-disconnect flex justify-between gap-1 items-center"
+              onClick={() => handleDisconnect()}
+            >
+              <span>
+                <PhoneOff />
+              </span>
+              Leave interview
+            </button>
+          </div>
         )}
       </div>
     </>

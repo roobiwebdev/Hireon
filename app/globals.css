@@ -9,6 +9,7 @@
   --color-success-200: #42c748;
   --color-destructive-100: #f75353;
   --color-destructive-200: #c44141;
+  --color-destructive-300: #24273a;
 
   --color-primary-100: #dddfff;
   --color-primary-200: #cac5fe;
@@ -169,6 +170,10 @@
 
   .btn-disconnect {
     @apply inline-block px-7 py-3 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-destructive-100 border border-transparent rounded-full shadow-sm focus:outline-none focus:shadow-2xl active:bg-destructive-200 hover:bg-destructive-200 min-w-28;
+  }
+
+  .btn-repeat {
+    @apply inline-block px-14 py-3 text-sm font-bold leading-5 text-white transition-colors duration-150 bg-destructive-300 border border-transparent rounded-full shadow-sm focus:outline-none focus:shadow-2xl active:bg-destructive-300 hover:bg-destructive-300 min-w-28 cursor-pointer;
   }
 
   .btn-upload {
