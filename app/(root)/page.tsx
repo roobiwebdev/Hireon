@@ -14,13 +14,24 @@ import { dummyInterviews } from "@/constants";
 async function Home() {
   const user = await getCurrentUser();
 
-  const [userInterviews, allInterview] = await Promise.all([
-    getInterviewsByUserId(user?.id!),
-    getLatestInterviews({ userId: user?.id! }),
-  ]);
+  let userInterviews: Interview[] = [];
+  let allInterview: Interview[] = [];
 
-  const hasPastInterviews = userInterviews?.length! > 0;
-  const hasUpcomingInterviews = allInterview?.length! > 0;
+  if (user?.id) {
+    try {
+      const [u, a] = await Promise.all([
+        getInterviewsByUserId(user.id),
+        getLatestInterviews({ userId: user.id }),
+      ]);
+      userInterviews = u || [];
+      allInterview = a || [];
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const hasPastInterviews = userInterviews.length > 0;
+  const hasUpcomingInterviews = allInterview.length > 0;
 
   return (
     <>

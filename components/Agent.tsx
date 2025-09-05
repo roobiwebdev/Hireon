@@ -117,27 +117,55 @@ const Agent = ({
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
+    const CALL_CONNECT_TIMEOUT_MS = 15000;
 
-    if (type === "generate") {
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions
-          .map((question) => `- ${question}`)
-          .join("\n");
+    try {
+      if (type === "generate") {
+        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+        if (!workflowId) {
+          console.error("Missing NEXT_PUBLIC_VAPI_WORKFLOW_ID");
+          throw new Error("Missing workflow id");
+        }
+
+        await Promise.race([
+          vapi.start(workflowId, {
+            variableValues: {
+              username: userName,
+              userid: userId,
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Connection timeout")),
+              CALL_CONNECT_TIMEOUT_MS
+            )
+          ),
+        ]);
+      } else {
+        let formattedQuestions = "";
+        if (questions) {
+          formattedQuestions = questions
+            .map((question) => `- ${question}`)
+            .join("\n");
+        }
+
+        await Promise.race([
+          vapi.start(interviewer, {
+            variableValues: {
+              questions: formattedQuestions,
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Connection timeout")),
+              CALL_CONNECT_TIMEOUT_MS
+            )
+          ),
+        ]);
       }
-
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
+    } catch (error) {
+      console.error("Failed to start call:", error);
+      setCallStatus(CallStatus.INACTIVE);
     }
   };
 
@@ -216,10 +244,12 @@ const Agent = ({
               )}
             />
 
-            <span className="relative">
-              {callStatus === "INACTIVE" || callStatus === "FINISHED"
-                ? "Call"
-                : ". . ."}
+            <span className="relative flex justify-center items-center">
+              {callStatus === "INACTIVE" || callStatus === "FINISHED" ? (
+                "Call"
+              ) : (
+                <div className="loader"></div>
+              )}
             </span>
           </button>
         ) : (
