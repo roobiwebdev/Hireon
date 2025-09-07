@@ -1,14 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-
+import React, { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
-import { PhoneOff, Repeat2 } from "lucide-react";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -25,46 +23,32 @@ interface SavedMessage {
 const Agent = ({
   userName,
   userId,
+  type,
   interviewId,
   feedbackId,
-  type,
   questions,
 }: AgentProps) => {
   const router = useRouter();
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [lastMessage, setLastMessage] = useState<string>("");
 
   useEffect(() => {
-    const onCallStart = () => {
-      setCallStatus(CallStatus.ACTIVE);
-    };
-
-    const onCallEnd = () => {
-      setCallStatus(CallStatus.FINISHED);
-    };
+    const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
+    const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
 
     const onMessage = (message: Message) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
         const newMessage = { role: message.role, content: message.transcript };
+
         setMessages((prev) => [...prev, newMessage]);
       }
     };
 
-    const onSpeechStart = () => {
-      console.log("speech start");
-      setIsSpeaking(true);
-    };
+    const onSpeechStart = () => setIsSpeaking(true);
+    const onSpeechEnd = () => setIsSpeaking(false);
 
-    const onSpeechEnd = () => {
-      console.log("speech end");
-      setIsSpeaking(false);
-    };
-
-    const onError = (error: Error) => {
-      console.log("Error:", error);
-    };
+    const onError = (error: Error) => console.log("Error", error);
 
     vapi.on("call-start", onCallStart);
     vapi.on("call-end", onCallEnd);
@@ -84,18 +68,14 @@ const Agent = ({
   }, []);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      setLastMessage(messages[messages.length - 1].content);
-    }
-
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
-      console.log("handleGenerateFeedback");
+      console.log("Generate feedback here");
 
+      // TODO: Create a server action that generates feedback
       const { success, feedbackId: id } = await createFeedback({
         interviewId: interviewId!,
         userId: userId!,
         transcript: messages,
-        feedbackId,
       });
 
       if (success && id) {
@@ -117,79 +97,53 @@ const Agent = ({
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
-    const CALL_CONNECT_TIMEOUT_MS = 15000;
 
-    try {
-      if (type === "generate") {
-        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
-        if (!workflowId) {
-          console.error("Missing NEXT_PUBLIC_VAPI_WORKFLOW_ID");
-          throw new Error("Missing workflow id");
+    if (type === "generate") {
+      await vapi.start(
+        undefined,
+        undefined,
+        undefined,
+        process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!,
+        {
+          variableValues: {
+            username: userName,
+            userid: userId,
+          },
         }
-
-        await Promise.race([
-          vapi.start(workflowId, {
-            variableValues: {
-              username: userName,
-              userid: userId,
-            },
-          }),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Connection timeout")),
-              CALL_CONNECT_TIMEOUT_MS
-            )
-          ),
-        ]);
-      } else {
-        let formattedQuestions = "";
-        if (questions) {
-          formattedQuestions = questions
-            .map((question) => `- ${question}`)
-            .join("\n");
-        }
-
-        await Promise.race([
-          vapi.start(interviewer, {
-            variableValues: {
-              questions: formattedQuestions,
-            },
-          }),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Connection timeout")),
-              CALL_CONNECT_TIMEOUT_MS
-            )
-          ),
-        ]);
+      );
+    } else {
+      let formattedQuestions = "";
+      if (questions) {
+        formattedQuestions = questions
+          .map((question) => `- ${question}`)
+          .join("\n");
       }
-    } catch (error) {
-      console.error("Failed to start call:", error);
-      setCallStatus(CallStatus.INACTIVE);
+
+      await vapi.start(interviewer, {
+        variableValues: {
+          questions: formattedQuestions,
+        },
+      });
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     setCallStatus(CallStatus.FINISHED);
     vapi.stop();
   };
 
-  const handleRepeat = () => {
-    if (lastMessage && callStatus === CallStatus.ACTIVE) {
-      // Send the last message back to the AI to repeat it
-      vapi.say(lastMessage);
-    }
-  };
+  const latestMessage = messages[messages.length - 1]?.content;
+  const isCallInactiveOrFinished =
+    callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
   return (
     <>
       <div className="call-view">
-        {/* AI Interviewer Card */}
         <div className="card-interviewer">
           <div className="avatar">
             <Image
               src="/ai-avatar.png"
-              alt="profile-image"
+              alt="vapi"
               width={65}
               height={54}
               className="object-cover"
@@ -199,44 +153,39 @@ const Agent = ({
           <h3>AI Interviewer</h3>
         </div>
 
-        {/* User Profile Card */}
         <div className="card-border">
           <div className="card-content">
             <Image
               src="/user-avatar.png"
-              alt="profile-image"
-              width={539}
-              height={539}
-              className="rounded-full object-cover size-[120px]"
+              alt="user avatar"
+              width={540}
+              height={540}
+              className="rounded-full object-cover size-[120px] "
             />
             <h3>{userName}</h3>
           </div>
         </div>
       </div>
 
-      {messages.filter((message) => message.role === "assistant").length >
-        0 && (
+      {messages.length > 0 && (
         <div className="transcript-border">
           <div className="transcript">
-            {messages
-              .filter((message) => message.role === "assistant")
-              .map((message, index) => (
-                <p
-                  key={`${message.role}-${index}-${message.content}`}
-                  className={cn(
-                    "mb-2 last:mb-0 transition-opacity duration-500 animate-fadeIn opacity-100"
-                  )}
-                >
-                  {message.content}
-                </p>
-              ))}
+            <p
+              key={latestMessage}
+              className={cn(
+                "transition-opacity duration-500 opacity-0",
+                "animate-fadeIn opacity-100"
+              )}
+            >
+              {latestMessage}
+            </p>
           </div>
         </div>
       )}
 
       <div className="w-full flex justify-center">
         {callStatus !== "ACTIVE" ? (
-          <button className="relative btn-call" onClick={() => handleCall()}>
+          <button className="relative btn-call" onClick={handleCall}>
             <span
               className={cn(
                 "absolute animate-ping rounded-full opacity-75",
@@ -244,39 +193,15 @@ const Agent = ({
               )}
             />
 
-            <span className="relative flex justify-center items-center">
-              {callStatus === "INACTIVE" || callStatus === "FINISHED" ? (
-                "Call"
-              ) : (
-                <div className="loader"></div>
-              )}
-            </span>
+            <span>{isCallInactiveOrFinished ? "Call" : ". . ."}</span>
           </button>
         ) : (
-          <div className="flex justify-between gap-4">
-            <button
-              className="btn-repeat flex justify-between gap-1 items-center"
-              onClick={() => handleRepeat()}
-            >
-              <span>
-                <Repeat2 />
-              </span>
-              Repeat
-            </button>
-            <button
-              className="btn-disconnect flex justify-between gap-1 items-center"
-              onClick={() => handleDisconnect()}
-            >
-              <span>
-                <PhoneOff />
-              </span>
-              Leave interview
-            </button>
-          </div>
+          <button className="btn-disconnect" onClick={handleDisconnect}>
+            End
+          </button>
         )}
       </div>
     </>
   );
 };
-
 export default Agent;

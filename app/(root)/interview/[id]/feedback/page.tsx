@@ -1,26 +1,29 @@
-import dayjs from "dayjs";
-import Link from "next/link";
-import Image from "next/image";
-import { redirect } from "next/navigation";
-
-import {
-  getFeedbackByInterviewId,
-  getInterviewById,
-} from "@/lib/actions/general.action";
-import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/actions/auth.action";
+import { getFeedbackByInterviewId, getInterviewsById } from "@/lib/actions/general.action";
+import { redirect } from "next/navigation";
+import React from 'react'
+import { Button } from "@/components/ui/button"
+import Image from "next/image"
+import Link from "next/link"
+import dayjs from "dayjs";
 
-const Feedback = async ({ params }: RouteParams) => {
+const page = async ({ params }: RouteParams) => {
+
   const { id } = await params;
   const user = await getCurrentUser();
 
-  const interview = await getInterviewById(id);
-  if (!interview) redirect("/");
+  const interview = await getInterviewsById(id);
+
+  if(!interview) redirect("/");
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
     userId: user?.id!,
-  });
+
+  })
+
+  // console.log(feedback);
+
 
   return (
     <section className="section-feedback">
@@ -113,7 +116,7 @@ const Feedback = async ({ params }: RouteParams) => {
         </Button>
       </div>
     </section>
-  );
-};
+  )
+}
 
-export default Feedback;
+export default page

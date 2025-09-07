@@ -6,11 +6,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const supportedFonts = [
-  { label: "Default", value: "" },
-  { label: "Mona Sans", value: "--font-mona-sans" },
-];
-
 const techIconBaseURL = "https://cdn.jsdelivr.net/gh/devicons/devicon/icons";
 
 const normalizeTechName = (tech: string) => {
