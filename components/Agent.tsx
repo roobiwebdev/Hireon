@@ -37,9 +37,38 @@ const Agent = ({
     const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
     const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
 
+    const normalizeTranscript = (text: string) => {
+      const replacements: Array<[RegExp, string]> = [
+        [/\bfronting\b/gi, "frontend"],
+        [/\backing\b/gi, "backend"],
+        [/\bfront[- ]?end\b/gi, "frontend"],
+        [/\bback[- ]?end\b/gi, "backend"],
+        [/\btype[ -]?script\b/gi, "TypeScript"],
+        [/\bjava[ -]?script\b/gi, "JavaScript"],
+        [/\bnext[ .-]?j(?:s|azz)\b/gi, "Next.js"],
+        [/\bnode[ .-]?j(?:s|azz)\b/gi, "Node.js"],
+        [/\bmongo[ ]?d(?:b)?\b/gi, "MongoDB"],
+        [/\bhtml[ ]?5\b/gi, "HTML5"],
+        [/\bcss\b/gi, "CSS"],
+        [/\breact(?:s)?\b/gi, "React"],
+        [/\bvue(?:\.js|js)?\b/gi, "Vue.js"],
+        [/\btail[ ]?wind(?:\s?css)?\b/gi, "Tailwind CSS"],
+      ];
+
+      let normalized = text;
+      for (const [pattern, replacement] of replacements) {
+        normalized = normalized.replace(pattern, replacement);
+      }
+      return normalized;
+    };
+
     const onMessage = (message: Message) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
-        const newMessage = { role: message.role, content: message.transcript };
+        const content =
+          message.role === "user"
+            ? normalizeTranscript(message.transcript)
+            : message.transcript;
+        const newMessage = { role: message.role, content };
 
         setMessages((prev) => [...prev, newMessage]);
       }
@@ -132,7 +161,9 @@ const Agent = ({
     vapi.stop();
   };
 
-  const latestMessage = messages[messages.length - 1]?.content;
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant")?.content;
   const isCallInactiveOrFinished =
     callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
@@ -167,17 +198,17 @@ const Agent = ({
         </div>
       </div>
 
-      {messages.length > 0 && (
+      {latestAssistantMessage && (
         <div className="transcript-border">
           <div className="transcript">
             <p
-              key={latestMessage}
+              key={latestAssistantMessage}
               className={cn(
                 "transition-opacity duration-500 opacity-0",
                 "animate-fadeIn opacity-100"
               )}
             >
-              {latestMessage}
+              {latestAssistantMessage}
             </p>
           </div>
         </div>
