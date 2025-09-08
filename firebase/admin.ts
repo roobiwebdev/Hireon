@@ -5,6 +5,7 @@ import { getFirestore } from "firebase-admin/firestore"
 const initFirebaseAdmin = () => {
     const apps = getApps();
 
+    
     if(!apps.length){
         initializeApp({
             credential: cert({
