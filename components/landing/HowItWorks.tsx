@@ -17,7 +17,7 @@ export default function HowItWorks({
       <SectionHeading
         eyebrow="How it works"
         title="Three steps from nervous to ready."
-        body="No forms to fill in. You set the interview up by talking, the same way you take it."
+        body="Set it up in a few taps, then have a real conversation out loud."
       />
 
       <ol className="mx-auto mt-14 grid max-w-6xl list-none gap-4 md:grid-cols-3">

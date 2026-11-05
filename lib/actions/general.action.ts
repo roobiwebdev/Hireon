@@ -4,7 +4,7 @@ import { feedbackSchema } from "@/constants";
 import { db } from "@/db";
 import { feedback, interview } from "@/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { google } from "@ai-sdk/google";
+import { withGemini } from "@/lib/ai/models";
 import { generateObject } from "ai";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
@@ -81,24 +81,29 @@ export async function createFeedback(input: z.input<typeof createFeedbackInput>)
       .map((sentence) => `- ${sentence.role}: ${sentence.content}\n`)
       .join("");
 
-    const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001", { structuredOutputs: false }),
-      schema: feedbackSchema,
-      prompt: `
-        You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
-        Transcript:
-        ${formattedTranscript}
-
-        Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
-        - **Communication Skills**: Clarity, articulation, structured responses.
-        - **Technical Knowledge**: Understanding of key concepts for the role.
-        - **Problem Solving**: Ability to analyze problems and propose solutions.
-        - **Cultural Fit**: Alignment with company values and job role.
-        - **Confidence and Clarity**: Confidence in responses, engagement, and clarity.
-        `,
-      system:
-        "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
-    });
+    const { object } = await withGemini(
+      (model, options) =>
+        generateObject({
+          model,
+          ...options,
+          schema: feedbackSchema,
+          prompt: `
+            You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
+            Transcript:
+            ${formattedTranscript}
+    
+            Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
+            - **Communication Skills**: Clarity, articulation, structured responses.
+            - **Technical Knowledge**: Understanding of key concepts for the role.
+            - **Problem Solving**: Ability to analyze problems and propose solutions.
+            - **Cultural Fit**: Alignment with company values and job role.
+            - **Confidence and Clarity**: Confidence in responses, engagement, and clarity.
+            `,
+          system:
+            "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
+        }),
+      { structuredOutputs: false, budgetMs: 120_000 }
+    );
 
     const values = {
       interviewId,
