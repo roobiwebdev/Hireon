@@ -52,10 +52,11 @@ Only `NEXT_PUBLIC_*` variables may be read in client code.
 Request flow: **UI → server action (`lib/actions/*.ts`) → Firebase Admin `db` → Firestore.**
 
 ```
-app/(auth)/        sign-in, sign-up (layout redirects signed-in users to /)
-app/(root)/        authenticated pages (layout redirects to /sign-in)
+app/(marketing)/   public landing page at / (copy in constants/landing.ts)
+app/(auth)/        sign-in, sign-up (layout redirects signed-in users to /dashboard)
+app/(root)/        authenticated pages: /dashboard, /interview/* (layout redirects to /sign-in)
 app/api/           route handlers (currently only the Vapi question-generation webhook)
-components/        app components; components/ui/ = shadcn primitives
+components/        app components; ui/ = shadcn primitives, landing/ = marketing sections, motion/ = animation primitives
 lib/actions/       "use server" data + AI logic (the only place that touches Firestore)
 firebase/          admin.ts (server SDK), client.ts (web SDK, auth only)
 constants/         Vapi assistant config, zod schemas, tech mappings, dummy data
@@ -79,13 +80,13 @@ types/             global ambient types (not imported)
 
 ### Interview flow: `components/Agent.tsx` is the hub
 `Agent` is a client component that wraps the `vapi` singleton (`lib/vapi.sdk.ts`). It runs in one of two modes:
-- **`type="generate"`** (`/interview`): starts the Vapi **workflow** (`NEXT_PUBLIC_VAPI_WORKFLOW_ID`) with `username` and `userid` variables. The workflow collects role, level, techstack, type and amount by voice, then calls `POST /api/vapi/generate` (`app/api/vapi/generate/route.ts`), outside this app's UI. That route asks Gemini for a JSON array of questions, runs `JSON.parse` on the result, and writes an `interviews` doc. When the call ends, the user is sent to `/`.
+- **`type="generate"`** (`/interview`): starts the Vapi **workflow** (`NEXT_PUBLIC_VAPI_WORKFLOW_ID`) with `username` and `userid` variables. The workflow collects role, level, techstack, type and amount by voice, then calls `POST /api/vapi/generate` (`app/api/vapi/generate/route.ts`), outside this app's UI. That route asks Gemini for a JSON array of questions, runs `JSON.parse` on the result, and writes an `interviews` doc. When the call ends, the user is sent to `/dashboard`.
 - **`type="interview"`** (`/interview/[id]`): starts the inline `interviewer` assistant config from `constants/index.ts`, which uses Deepgram for transcription, 11labs for voice and OpenAI for the model. The interview's questions are injected through the `{{questions}}` variable. Final transcripts are collected into `messages`. When the call ends, the component calls `createFeedback` (Gemini `generateObject` with `feedbackSchema`) and then routes to `/interview/[id]/feedback`.
 
 The questions are read aloud, so the generation prompt forbids special characters such as `/` and `*`. Keep that constraint when editing the prompts.
 
 ### Other notes
-- The home page's "Take an Interview" section currently renders `dummyInterviews`. The real `getLatestInterviews` block is commented out.
+- The dashboard's "Take an Interview" section currently renders `dummyInterviews`. The real `getLatestInterviews` block is commented out.
 - `InterviewCard` is an async server component that fetches its own feedback.
 - The path alias `@/*` maps to the repo root.
 
@@ -99,7 +100,9 @@ The questions are read aloud, so the generation prompt forbids special character
 | Vapi message types | `types/vapi.d.ts` |
 | Vapi interviewer assistant config | `interviewer` in `constants/index.ts` |
 | Feedback AI output schema | `feedbackSchema` (zod) in `constants/index.ts` |
-| Tech name → icon mapping | `mappings` in `constants/index.ts` + `getTechLogos` in `lib/utils.ts` |
+| Tech name → icon mapping | `mappings` in `constants/index.ts` + `getTechLogoUrl` / `getTechLogos` in `lib/utils.ts` |
+| Landing page copy and demo data | `constants/landing.ts` (no invented stats or testimonials) |
+| Animations | `components/motion/*` (`MotionProvider` with LazyMotion, `Reveal`, `CountUp`). Use `m.*` components, not `motion.*`. |
 | Interview cover images | `interviewCovers` + `getRandomInterviewCover` |
 | Theme colors, shared CSS classes | `app/globals.css` (`@theme`, `@layer components`, `@utility`) |
 | Class merging | `cn()` in `lib/utils.ts` |

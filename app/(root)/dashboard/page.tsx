@@ -4,22 +4,16 @@ import Link from "next/link";
 import React from "react";
 import InterviewCard from "@/components/InterviewCard";
 import { getCurrentUser } from "@/lib/actions/auth.action";
-import {
-  getInterviewsByUserId,
-  getLatestInterviews,
-} from "@/lib/actions/general.action";
+import { getInterviewsByUserId } from "@/lib/actions/general.action";
 import { dummyInterviews } from "@/constants";
+import { redirect } from "next/navigation";
 
 const page = async () => {
   const user = await getCurrentUser();
+  if (!user) redirect("/sign-in");
 
-  const [userInterviews, latestInterviews] = await Promise.all([
-    await getInterviewsByUserId(user?.id!),
-    await getLatestInterviews({ userId: user?.id! }),
-  ]);
-
-  const hasPastInterviews = userInterviews?.length! > 0;
-  const hasUpcomingInterviews = latestInterviews?.length! > 0;
+  const userInterviews = await getInterviewsByUserId(user.id);
+  const hasPastInterviews = (userInterviews?.length ?? 0) > 0;
 
   return (
     <>
@@ -53,7 +47,7 @@ const page = async () => {
               <InterviewCard {...interview} key={interview.id} />
             ))
           ) : (
-            <p>You haven't taken any interviews yet.</p>
+            <p>You haven&apos;t taken any interviews yet.</p>
           )}
 
           {/* <p>You haven't taken any interview yet.</p> */}
