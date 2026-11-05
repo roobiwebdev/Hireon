@@ -214,7 +214,8 @@ export const dummyInterviews: Interview[] = [
     level: "Junior",
     questions: ["What is React?"],
     finalized: false,
-    createdAt: "2024-03-15T10:00:00Z",
+    createdAt: new Date("2024-03-15T10:00:00Z"),
+    coverImage: null,
   },
   {
     id: "2",
@@ -225,7 +226,8 @@ export const dummyInterviews: Interview[] = [
     level: "Senior",
     questions: ["What is Node.js?"],
     finalized: false,
-    createdAt: "2024-03-14T15:30:00Z",
+    createdAt: new Date("2024-03-14T15:30:00Z"),
+    coverImage: null,
   },
   {
     id: "3",
@@ -236,7 +238,8 @@ export const dummyInterviews: Interview[] = [
     level: "Junior",
     questions: ["What is React?"],
     finalized: false,
-    createdAt: "2024-03-15T10:00:00Z",
+    createdAt: new Date("2024-03-15T10:00:00Z"),
+    coverImage: null,
   },
   {
     id: "3",
@@ -247,7 +250,8 @@ export const dummyInterviews: Interview[] = [
     level: "Senior",
     questions: ["What is Node.js?"],
     finalized: false,
-    createdAt: "2024-03-14T15:30:00Z",
+    createdAt: new Date("2024-03-14T15:30:00Z"),
+    coverImage: null,
   },
   {
     id: "4",
@@ -258,7 +262,8 @@ export const dummyInterviews: Interview[] = [
     level: "Junior",
     questions: ["What is React?"],
     finalized: false,
-    createdAt: "2024-03-15T10:00:00Z",
+    createdAt: new Date("2024-03-15T10:00:00Z"),
+    coverImage: null,
   },
   {
     id: "5",
@@ -269,7 +274,8 @@ export const dummyInterviews: Interview[] = [
     level: "Senior",
     questions: ["What is Node.js?"],
     finalized: false,
-    createdAt: "2024-03-14T15:30:00Z",
+    createdAt: new Date("2024-03-14T15:30:00Z"),
+    coverImage: null,
   },
   {
     id: "6",
@@ -280,7 +286,8 @@ export const dummyInterviews: Interview[] = [
     level: "Junior",
     questions: ["What is React?"],
     finalized: false,
-    createdAt: "2024-03-15T10:00:00Z",
+    createdAt: new Date("2024-03-15T10:00:00Z"),
+    coverImage: null,
   },
   {
     id: "7",
@@ -291,7 +298,8 @@ export const dummyInterviews: Interview[] = [
     level: "Senior",
     questions: ["What is Node.js?"],
     finalized: false,
-    createdAt: "2024-03-14T15:30:00Z",
+    createdAt: new Date("2024-03-14T15:30:00Z"),
+    coverImage: null,
   },{
     id: "8",
     userId: "user1",
@@ -301,7 +309,8 @@ export const dummyInterviews: Interview[] = [
     level: "Junior",
     questions: ["What is React?"],
     finalized: false,
-    createdAt: "2024-03-15T10:00:00Z",
+    createdAt: new Date("2024-03-15T10:00:00Z"),
+    coverImage: null,
   },
   {
     id: "9",
@@ -312,6 +321,7 @@ export const dummyInterviews: Interview[] = [
     level: "Senior",
     questions: ["What is Node.js?"],
     finalized: false,
-    createdAt: "2024-03-14T15:30:00Z",
+    createdAt: new Date("2024-03-14T15:30:00Z"),
+    coverImage: null,
   },
 ];

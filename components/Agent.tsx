@@ -69,16 +69,10 @@ const Agent = ({
 
   useEffect(() => {
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
-      console.log("Generate feedback here");
+      if (!interviewId) return;
+      const result = await createFeedback({ interviewId, transcript: messages });
 
-      // TODO: Create a server action that generates feedback
-      const { success, feedbackId: id } = await createFeedback({
-        interviewId: interviewId!,
-        userId: userId!,
-        transcript: messages,
-      });
-
-      if (success && id) {
+      if (result.success) {
         router.push(`/interview/${interviewId}/feedback`);
       } else {
         console.log("Error saving feedback");

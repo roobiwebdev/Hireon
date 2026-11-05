@@ -3,17 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import InterviewCard from "@/components/InterviewCard";
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { getInterviewsByUserId } from "@/lib/actions/general.action";
+import { getUserInterviews } from "@/lib/actions/general.action";
 import { dummyInterviews } from "@/constants";
-import { redirect } from "next/navigation";
 
 const page = async () => {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
-
-  const userInterviews = await getInterviewsByUserId(user.id);
-  const hasPastInterviews = (userInterviews?.length ?? 0) > 0;
+  const userInterviews = await getUserInterviews();
+  const hasPastInterviews = userInterviews.length > 0;
 
   return (
     <>
@@ -43,7 +38,7 @@ const page = async () => {
 
         <div className="interviews-section">
           {hasPastInterviews ? (
-            userInterviews?.map((interview) => (
+            userInterviews.map((interview) => (
               <InterviewCard {...interview} key={interview.id} />
             ))
           ) : (

@@ -1,17 +1,17 @@
 import React from 'react'
-import { getInterviewsById } from "@/lib/actions/general.action";
+import { getInterviewById } from "@/lib/actions/general.action";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { getRandomInterviewCover } from "@/lib/utils";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 import Agent from "@/components/Agent";
-import { getCurrentUser } from "@/lib/actions/auth.action";
+import { requireUser } from "@/lib/auth/session";
 
 const page = async ({params}: RouteParams) => {
 
   const { id } = await params;
-  const user = await getCurrentUser();
-  const interview = await getInterviewsById(id);
+  const user = await requireUser();
+  const interview = await getInterviewById(id);
 
   if(!interview) redirect("/dashboard");
 
@@ -37,8 +37,8 @@ const page = async ({params}: RouteParams) => {
         </div>
 
         <Agent 
-            userName={user?.name || ""} 
-            userId={user?.id} 
+            userName={user.name} 
+            userId={user.id} 
             interviewId={id}
             type="interview"
             questions={interview.questions}
