@@ -19,11 +19,43 @@ interface InterviewCardProps {
 
 interface AgentProps {
   userName: string;
+  userImage?: string | null;
   userId?: string;
   interviewId?: string;
   feedbackId?: string;
   type: "generate" | "interview";
+  role?: string;
   questions?: string[];
+}
+
+/**
+ * SOURCE OF TRUTH KEYWORDS: CallMessage, transcript line, call transcript, CallStatus, InterviewCallState, voice engine contract
+ * WHAT:  The contract every voice engine (Vapi or free browser voice) returns to the call screen.
+ * WHY:   components/Agent.tsx renders one CallView no matter which engine runs the call.
+ * WHERE: hooks/useVapiCall.ts, hooks/useBrowserInterview.ts, hooks/useCallCompletion.ts, components/call/CallView.tsx.
+ */
+interface CallMessage {
+  role: "user" | "system" | "assistant";
+  content: string;
+}
+
+type CallStatus = "INACTIVE" | "CONNECTING" | "ACTIVE" | "FINISHED";
+
+interface InterviewCallState {
+  status: CallStatus;
+  messages: CallMessage[];
+  /** The interviewer is talking. */
+  aiSpeaking: boolean;
+  /** The candidate's microphone is open. */
+  listening: boolean;
+  /** Waiting on the interviewer's next line. */
+  thinking: boolean;
+  /** Live words while the candidate speaks (browser engine only). */
+  liveCaption: string;
+  start: () => void;
+  end: () => void;
+  /** Ends the current answer early ("I'm done"). Only the browser engine supports it. */
+  finishAnswer?: () => void;
 }
 
 interface RouteParams {

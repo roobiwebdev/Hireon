@@ -57,7 +57,7 @@ export const marqueeTech = [
 export const steps = [
   {
     title: "Pick the role",
-    body: "Say the job title, your level, the stack and how many questions you want. A short voice chat sets it up.",
+    body: "Type the job title, pick your level and focus, list your stack and choose how many questions. It takes a few seconds.",
   },
   {
     title: "Talk it through",
@@ -140,7 +140,7 @@ export const faqs = [
   {
     question: "Do I need to install anything?",
     answer:
-      "No. HireonAI runs in your browser. You only need to allow microphone access when the call starts.",
+      "No. HireonAI runs in your browser. Use Chrome, Edge or Safari, and allow microphone access when the call starts.",
   },
   {
     question: "What kinds of interviews can I practice?",

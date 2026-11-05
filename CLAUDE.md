@@ -6,7 +6,7 @@ Every rule here is mandatory. `AGENTS.md` points here so every agent reads the s
 
 ## What this is
 
-HireonAI: an AI mock-interview app. The user has a voice call with an AI interviewer (Vapi), and Gemini then scores the transcript and saves structured feedback. Next.js 15 App Router, React 19, Better Auth, Neon Postgres via Drizzle, Tailwind v4, and shadcn/ui (new-york style). Production runs on Vercel at https://hireon.roobi.dev.
+HireonAI: an AI mock-interview app. The user has a voice call with an AI interviewer (free browser voice by default, Vapi optionally), and Gemini then scores the transcript and saves structured feedback. Next.js 15 App Router, React 19, Better Auth, Neon Postgres via Drizzle, Tailwind v4, and shadcn/ui (new-york style). Production runs on Vercel at https://hireon.roobi.dev.
 
 ## 0. How to work
 
@@ -47,8 +47,9 @@ Managed in Vercel (`vercel env ls`); pull them locally with `vercel env pull .en
 - Database: `DATABASE_URL`. Neon project `hireon` (id `steep-star-87374530`, Dev org). Production uses the `main` branch; Development and Preview use the `dev` branch.
 - Auth: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (production: `https://hireon.roobi.dev`, development: `http://localhost:3000`; previews fall back to `VERCEL_BRANCH_URL`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. Google sign-in only appears when both Google keys are set.
 - Vapi webhook: optional `VAPI_WEBHOOK_SECRET`. When set, `POST /api/vapi/generate` requires a matching `x-vapi-secret` header.
-- Vapi: `NEXT_PUBLIC_VAPI_WEB_TOKEN` and `NEXT_PUBLIC_VAPI_WORKFLOW_ID`.
-- Gemini via `@ai-sdk/google`: `GOOGLE_GENERATIVE_AI_API_KEY` (the SDK's default variable name).
+- Voice engine: `NEXT_PUBLIC_VOICE_PROVIDER`. Unset means free browser voice; `vapi` switches to Vapi (needs Vapi credits).
+- Vapi (only when the provider is `vapi`): `NEXT_PUBLIC_VAPI_WEB_TOKEN` and `NEXT_PUBLIC_VAPI_WORKFLOW_ID`.
+- Gemini via `@ai-sdk/google`: `GOOGLE_GENERATIVE_AI_API_KEY` (the SDK's default variable name). It is a free-tier key, so models are often overloaded; see `withGemini`.
 
 Only `NEXT_PUBLIC_*` variables may be read in client code.
 
@@ -80,10 +81,13 @@ types/             global ambient types (not imported)
 - Tables: Better Auth's `user`, `session`, `account`, `verification`, `rate_limit`, plus `interview` and `feedback`. Feedback is unique per (interview, user), so a retake overwrites the previous report.
 - Schema changes: edit `db/schema.ts`, run `npm run db:generate`, review the SQL, commit it, run `npm run db:migrate` (dev branch). Production migrations run against the `main` branch before the code that needs them is deployed.
 
-### Interview flow: `components/Agent.tsx` is the hub
-`Agent` is a client component that wraps the `vapi` singleton (`lib/vapi.sdk.ts`). It runs in one of two modes:
-- **`type="generate"`** (`/interview`): starts the Vapi **workflow** (`NEXT_PUBLIC_VAPI_WORKFLOW_ID`) with `username` and `userid` variables. The workflow collects role, level, techstack, type and amount by voice, then calls `POST /api/vapi/generate` (`app/api/vapi/generate/route.ts`), outside this app's UI. That route asks Gemini for a JSON array of questions, validates the result with zod, and inserts an `interview` row. When the call ends, the user is sent to `/dashboard`.
-- **`type="interview"`** (`/interview/[id]`): starts the inline `interviewer` assistant config from `constants/index.ts`, which uses Deepgram for transcription, 11labs for voice and OpenAI for the model. The interview's questions are injected through the `{{questions}}` variable. Final transcripts are collected into `messages`. When the call ends, the component calls `createFeedback` (Gemini `generateObject` with `feedbackSchema`) and then routes to `/interview/[id]/feedback`.
+### Interview flow
+- **Setup.** In browser mode (the default), `/interview` shows `InterviewSetupForm`, which calls `createInterview` (`lib/actions/interview.action.ts`). In Vapi mode, `/interview` runs the Vapi voice workflow, which calls `POST /api/vapi/generate`. Both use `generateInterviewQuestions` (`lib/ai/questions.ts`) and `interviewSetupSchema` (`lib/validation/interview.ts`).
+- **The call.** `components/Agent.tsx` picks the engine from `lib/voice/provider.ts` and renders the shared `components/call/CallView.tsx`. Each engine is a hook that returns `InterviewCallState` (types/index.d.ts):
+  - `hooks/useBrowserInterview.ts` (default, free): speaks with `speechSynthesis` and listens with `SpeechRecognition` (`lib/voice/browser.ts`). It works in Chrome, Edge and Safari but not Firefox. After each answer, `getInterviewerTurn` lets Gemini ask at most one follow-up, with an 8-second budget before it falls back to "thanks".
+  - `hooks/useVapiCall.ts` (`NEXT_PUBLIC_VOICE_PROVIDER=vapi`): the original Vapi assistant (`interviewer` in `constants/index.ts`).
+- **Scoring.** `hooks/useCallCompletion.ts` calls `createFeedback` when a call finishes and opens `/interview/[id]/feedback`. If scoring fails, the transcript is kept and the user can retry.
+- **Errors.** `describeCallError` (`lib/voice/errors.ts`) turns any call failure into a single user-facing message.
 
 The questions are read aloud, so the generation prompt forbids special characters such as `/` and `*`. Keep that constraint when editing the prompts.
 
@@ -99,7 +103,13 @@ The questions are read aloud, so the generation prompt forbids special character
 | Current user / security checkpoint | `getCurrentUser()`, `requireUser()` in `lib/auth/session.ts` |
 | Auth config (providers, sessions, rate limits) | `auth` in `lib/auth/index.ts` |
 | Database tables and row types | `db/schema.ts` (`Interview`, `Feedback`, `User` are inferred there) |
-| Data reads/writes, Gemini calls | `lib/actions/general.action.ts` (`app/api/vapi/generate/route.ts` for question generation) |
+| Data reads/writes, feedback scoring | `lib/actions/general.action.ts` |
+| Interview setup, interviewer follow-ups | `lib/actions/interview.action.ts` |
+| Which Gemini models, fallback and time budgets | `withGemini` in `lib/ai/models.ts` (never call `google("…")` directly) |
+| Question generation prompt | `generateInterviewQuestions` in `lib/ai/questions.ts` |
+| Interview setup validation | `interviewSetupSchema` in `lib/validation/interview.ts` |
+| Voice engine switch, browser speech, call errors | `lib/voice/provider.ts`, `lib/voice/browser.ts`, `lib/voice/errors.ts` |
+| Call engine contract | `InterviewCallState` / `CallMessage` in `types/index.d.ts` |
 | Global type aliases and props | `types/index.d.ts` (ambient, not imported; row types alias db/schema.ts) |
 | Vapi message types | `types/vapi.d.ts` |
 | Vapi interviewer assistant config | `interviewer` in `constants/index.ts` |
@@ -133,7 +143,7 @@ If you add an entry to this table's kind of thing (a new collection, schema or s
 - Always run `npx tsc --noEmit` and `npm run lint`.
 - For changed UI or runtime behavior, use the `evidence-driven-testing` skill. Record the failure before the fix and the success after. Evidence goes in the gitignored `.artifacts/<task-name>/`.
 - For screenshot pairs, use `before-and-after`. **Keep captures local.** Its `--markdown` option uploads to 0x0.st, a public host, so upload only when the user explicitly asks for PR images, and never for pages that show user data, transcripts or feedback.
-- Voice calls need a microphone and live Vapi credentials. If a flow can't be driven, mark it `untested` with the reason instead of claiming it works.
+- Headless browsers can't hear or speak. To test the browser interview end to end, stub only `speechSynthesis` and `SpeechRecognition` with `addInitScript` and keep everything else real: a fake `speak` that fires `onend`, and a fake recognizer that emits one final result per answer. Vapi calls need credits. If a flow can't be driven, mark it `untested` with the reason instead of claiming it works.
 
 ## 8. Source-of-truth comments
 
