@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { vapi } from "@/lib/vapi.sdk";
+import { describeCallError, vapi } from "@/lib/vapi.sdk";
+import { toast } from "sonner";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
 
@@ -32,6 +33,20 @@ const Agent = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
+  // Lets the Vapi listeners (registered once) see the current status.
+  const callStatusRef = useRef(callStatus);
+  useEffect(() => {
+    callStatusRef.current = callStatus;
+  }, [callStatus]);
+
+  // Vapi reports a failed start twice (error event, then a null result); only the first,
+  // more specific message should reach the user.
+  const errorShownRef = useRef(false);
+  const showCallError = (error: unknown) => {
+    if (errorShownRef.current) return;
+    errorShownRef.current = true;
+    toast.error(describeCallError(error));
+  };
 
   useEffect(() => {
     const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
@@ -48,7 +63,14 @@ const Agent = ({
     const onSpeechStart = () => setIsSpeaking(true);
     const onSpeechEnd = () => setIsSpeaking(false);
 
-    const onError = (error: Error) => console.log("Error", error);
+    const onError = (error: unknown) => {
+      console.warn("Vapi error", error);
+      // A failure while connecting means the call never started: reset the button and explain why.
+      if (callStatusRef.current === CallStatus.CONNECTING) {
+        setCallStatus(CallStatus.INACTIVE);
+        showCallError(error);
+      }
+    };
 
     vapi.on("call-start", onCallStart);
     vapi.on("call-end", onCallEnd);
@@ -90,34 +112,41 @@ const Agent = ({
   }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
 
   const handleCall = async () => {
+    errorShownRef.current = false;
+    callStatusRef.current = CallStatus.CONNECTING;
     setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      await vapi.start(
-        undefined,
-        undefined,
-        undefined,
-        process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!,
-        {
+    try {
+      let call: unknown;
+      if (type === "generate") {
+        const workflowId = process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
+        if (!workflowId) throw new Error("Missing NEXT_PUBLIC_VAPI_WORKFLOW_ID");
+        call = await vapi.start(undefined, undefined, undefined, workflowId, {
           variableValues: {
             username: userName,
             userid: userId,
           },
-        }
-      );
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions
+        });
+      } else {
+        const formattedQuestions = (questions ?? [])
           .map((question) => `- ${question}`)
           .join("\n");
+
+        call = await vapi.start(interviewer, {
+          variableValues: {
+            questions: formattedQuestions,
+          },
+        });
       }
 
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
+      // vapi.start resolves to null instead of throwing when the call can't be created.
+      if (!call) {
+        setCallStatus(CallStatus.INACTIVE);
+        showCallError(null);
+      }
+    } catch (error) {
+      setCallStatus(CallStatus.INACTIVE);
+      showCallError(error);
     }
   };
 
