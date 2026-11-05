@@ -1,10 +1,6 @@
-import React from 'react'
-import AuthForm from "@/components/AuthForm"
+import AuthForm from "@/components/AuthForm";
+import { googleEnabled } from "@/lib/auth";
 
-const page = () => {
-  return (
-    <AuthForm type="sign-up"/>
-  )
-}
+const page = () => <AuthForm type="sign-up" googleEnabled={googleEnabled} />;
 
-export default page
+export default page;

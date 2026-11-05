@@ -6,7 +6,7 @@ Every rule here is mandatory. `AGENTS.md` points here so every agent reads the s
 
 ## What this is
 
-HireonAI: an AI mock-interview app. The user has a voice call with an AI interviewer (Vapi), and Gemini then scores the transcript and saves structured feedback. Next.js 15 App Router, React 19, Firebase (Auth + Firestore), Tailwind v4, and shadcn/ui (new-york style).
+HireonAI: an AI mock-interview app. The user has a voice call with an AI interviewer (Vapi), and Gemini then scores the transcript and saves structured feedback. Next.js 15 App Router, React 19, Better Auth, Neon Postgres via Drizzle, Tailwind v4, and shadcn/ui (new-york style). Production runs on Vercel at https://hireon.roobi.dev.
 
 ## 0. How to work
 
@@ -32,6 +32,9 @@ npm run dev      # next dev --turbopack (http://localhost:3000)
 npm run build
 npm run lint     # next lint (eslint next/core-web-vitals + next/typescript)
 npx tsc --noEmit # type-check
+npm run db:generate  # create a SQL migration from db/schema.ts (review it, commit it)
+npm run db:migrate   # apply migrations to the DATABASE_URL in .env.local (the Neon dev branch)
+npm run db:studio    # browse the database
 ```
 
 - **The build will not catch errors:** `next.config.ts` sets `eslint.ignoreDuringBuilds` and `typescript.ignoreBuildErrors`. Run `tsc --noEmit` and `lint` yourself to verify changes.
@@ -40,8 +43,10 @@ npx tsc --noEmit # type-check
 
 ## 2. Environment variables (`.env*` is gitignored)
 
-- Server, used by the Firebase Admin SDK (`firebase/admin.ts`): `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (escaped `\n` is converted to real newlines).
-- Client, used by the Firebase web SDK (`firebase/client.ts`): `NEXT_PUBLIC_FIREBASE_*` (API key, auth domain, project ID, storage bucket, messaging sender ID, app ID, measurement ID).
+Managed in Vercel (`vercel env ls`); pull them locally with `vercel env pull .env.local --environment development`.
+- Database: `DATABASE_URL`. Neon project `hireon` (id `steep-star-87374530`, Dev org). Production uses the `main` branch; Development and Preview use the `dev` branch.
+- Auth: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (production: `https://hireon.roobi.dev`, development: `http://localhost:3000`; previews fall back to `VERCEL_BRANCH_URL`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. Google sign-in only appears when both Google keys are set.
+- Vapi webhook: optional `VAPI_WEBHOOK_SECRET`. When set, `POST /api/vapi/generate` requires a matching `x-vapi-secret` header.
 - Vapi: `NEXT_PUBLIC_VAPI_WEB_TOKEN` and `NEXT_PUBLIC_VAPI_WORKFLOW_ID`.
 - Gemini via `@ai-sdk/google`: `GOOGLE_GENERATIVE_AI_API_KEY` (the SDK's default variable name).
 
@@ -49,38 +54,35 @@ Only `NEXT_PUBLIC_*` variables may be read in client code.
 
 ## 3. Architecture: where code goes
 
-Request flow: **UI → server action (`lib/actions/*.ts`) → Firebase Admin `db` → Firestore.**
+Request flow: **UI → server action (`lib/actions/*.ts`) → `requireUser()` → Drizzle `db` → Neon Postgres.**
 
 ```
 app/(marketing)/   public landing page at / (copy in constants/landing.ts)
 app/(auth)/        sign-in, sign-up (layout redirects signed-in users to /dashboard)
 app/(root)/        authenticated pages: /dashboard, /interview/* (layout redirects to /sign-in)
-app/api/           route handlers (currently only the Vapi question-generation webhook)
+app/api/           route handlers: auth/[...all] (Better Auth) and vapi/generate (Vapi webhook)
 components/        app components; ui/ = shadcn primitives, landing/ = marketing sections, motion/ = animation primitives
-lib/actions/       "use server" data + AI logic (the only place that touches Firestore)
-firebase/          admin.ts (server SDK), client.ts (web SDK, auth only)
+lib/actions/       "use server" data + AI logic
+lib/auth/          index.ts (Better Auth server), session.ts (getCurrentUser, requireUser), client.ts (browser)
+db/                schema.ts (all tables), index.ts (Drizzle client), migrations/ (generated SQL, committed)
 constants/         Vapi assistant config, zod schemas, tech mappings, dummy data
 types/             global ambient types (not imported)
 ```
 
-### Auth: Firebase client SDK plus a server session cookie
-1. `components/AuthForm.tsx` signs the user in or up on the client with the Firebase web SDK.
-2. On sign-in it gets an ID token and calls the server action `signIn` in `lib/actions/auth.action.ts`. That action calls Admin `createSessionCookie` and sets an httpOnly `session` cookie that lasts one week.
-3. Sign-up only writes a `users/{uid}` doc and sends the user to `/sign-in`. It does not log them in.
-4. `getCurrentUser()` verifies the cookie and reads `users/{uid}`. This is the only way the server knows who the user is.
-5. Route protection lives in the `(root)` and `(auth)` layouts. There is no `middleware.ts`.
+### Auth: Better Auth
+1. `components/AuthForm.tsx` calls `authClient` (`lib/auth/client.ts`) for email/password sign-up and sign-in, and for "Continue with Google". Sign-up signs the user in directly.
+2. `app/api/auth/[...all]/route.ts` serves Better Auth. Sessions are httpOnly cookies stored in the `session` table, and auth endpoints are rate limited in the `rate_limit` table.
+3. `getCurrentUser()` / `requireUser()` in `lib/auth/session.ts` read the session on the server. They are the only way server code learns who the user is.
+4. Route protection lives in the `(root)` layout (`requireUser`) and the `(auth)` layout (redirects signed-in users). There is no `middleware.ts`.
 
 ### Data access
-- All Firestore access happens on the server through the Admin SDK (`db` from `@/firebase/admin`), in the `"use server"` files under `lib/actions/`. Never read or write Firestore from the client. The client SDK is used for Auth only.
-- Collections:
-  - `users`: `{name, email}`, keyed by uid.
-  - `interviews`: `{role, type, level, techstack[], questions[], userId, finalized, coverImage, createdAt}`.
-  - `feedback`: `{interviewId, userId, totalScore, categoryScores[], strengths[], areasForImprovement[], finalAssessment, createdAt}`.
-- The queries in `general.action.ts` combine `where` and `orderBy`, so they need Firestore composite indexes.
+- Drizzle over Neon's HTTP driver (`db/index.ts`, server only). That driver has no interactive transactions, so write with single statements (inserts and upserts).
+- Tables: Better Auth's `user`, `session`, `account`, `verification`, `rate_limit`, plus `interview` and `feedback`. Feedback is unique per (interview, user), so a retake overwrites the previous report.
+- Schema changes: edit `db/schema.ts`, run `npm run db:generate`, review the SQL, commit it, run `npm run db:migrate` (dev branch). Production migrations run against the `main` branch before the code that needs them is deployed.
 
 ### Interview flow: `components/Agent.tsx` is the hub
 `Agent` is a client component that wraps the `vapi` singleton (`lib/vapi.sdk.ts`). It runs in one of two modes:
-- **`type="generate"`** (`/interview`): starts the Vapi **workflow** (`NEXT_PUBLIC_VAPI_WORKFLOW_ID`) with `username` and `userid` variables. The workflow collects role, level, techstack, type and amount by voice, then calls `POST /api/vapi/generate` (`app/api/vapi/generate/route.ts`), outside this app's UI. That route asks Gemini for a JSON array of questions, runs `JSON.parse` on the result, and writes an `interviews` doc. When the call ends, the user is sent to `/dashboard`.
+- **`type="generate"`** (`/interview`): starts the Vapi **workflow** (`NEXT_PUBLIC_VAPI_WORKFLOW_ID`) with `username` and `userid` variables. The workflow collects role, level, techstack, type and amount by voice, then calls `POST /api/vapi/generate` (`app/api/vapi/generate/route.ts`), outside this app's UI. That route asks Gemini for a JSON array of questions, validates the result with zod, and inserts an `interview` row. When the call ends, the user is sent to `/dashboard`.
 - **`type="interview"`** (`/interview/[id]`): starts the inline `interviewer` assistant config from `constants/index.ts`, which uses Deepgram for transcription, 11labs for voice and OpenAI for the model. The interview's questions are injected through the `{{questions}}` variable. Final transcripts are collected into `messages`. When the call ends, the component calls `createFeedback` (Gemini `generateObject` with `feedbackSchema`) and then routes to `/interview/[id]/feedback`.
 
 The questions are read aloud, so the generation prompt forbids special characters such as `/` and `*`. Keep that constraint when editing the prompts.
@@ -94,9 +96,11 @@ The questions are read aloud, so the generation prompt forbids special character
 
 | Concern | Lives in |
 | --- | --- |
-| Current user / session | `getCurrentUser()`, `isAuthenticated()` in `lib/actions/auth.action.ts` |
-| Firestore reads/writes, Gemini calls | `lib/actions/general.action.ts` (`app/api/vapi/generate/route.ts` for question generation) |
-| Domain types (`Interview`, `Feedback`, `User`, props) | `types/index.d.ts` (global ambient, not imported) |
+| Current user / security checkpoint | `getCurrentUser()`, `requireUser()` in `lib/auth/session.ts` |
+| Auth config (providers, sessions, rate limits) | `auth` in `lib/auth/index.ts` |
+| Database tables and row types | `db/schema.ts` (`Interview`, `Feedback`, `User` are inferred there) |
+| Data reads/writes, Gemini calls | `lib/actions/general.action.ts` (`app/api/vapi/generate/route.ts` for question generation) |
+| Global type aliases and props | `types/index.d.ts` (ambient, not imported; row types alias db/schema.ts) |
 | Vapi message types | `types/vapi.d.ts` |
 | Vapi interviewer assistant config | `interviewer` in `constants/index.ts` |
 | Feedback AI output schema | `feedbackSchema` (zod) in `constants/index.ts` |
@@ -112,18 +116,16 @@ If you add an entry to this table's kind of thing (a new collection, schema or s
 ## 5. TypeScript
 
 - New or changed code: no `any`, no `!` non-null assertions, no `@ts-ignore` or `@ts-expect-error`, and no `as` casts except `as const`. Narrow `unknown` with type guards. Existing code has many of these. Remove them in code you touch, but don't do unrelated sweeps.
-- **Type lookup order:** the existing global types in `types/index.d.ts`, then `z.infer` of an existing zod schema, then library types (Vapi `CreateAssistantDTO`, Firebase). Only then write a new type, in `types/index.d.ts`, with a SOT header.
+- **Type lookup order:** Drizzle row types from `db/schema.ts`, then the global types in `types/index.d.ts`, then `z.infer` of an existing zod schema, then library types (Vapi `CreateAssistantDTO`, Better Auth). Only then write a new type, in `types/index.d.ts`, with a SOT header.
 - `strict` is on. Fix the real type instead of fighting it.
 
 ## 6. Validation and security
 
 - **Zod on every input boundary:** every server action argument, every route handler body, every form. Forms use `react-hook-form` with `zodResolver`, matching `AuthForm.tsx`.
-- **The user ID always comes from `getCurrentUser()`, never from client input.** Server actions are public endpoints, and any argument can be forged.
-- Known gaps (fix them when you touch these files, and don't copy the pattern):
-  - `createFeedback`, `getInterviewsByUserId` and `getFeedbackByInterviewId` take `userId` as a parameter instead of reading the session.
-  - `POST /api/vapi/generate` is unauthenticated and trusts `userid` from the body, because Vapi calls it directly.
-  - AI output is passed to `JSON.parse` without validation.
-- Secrets never reach the client: no non-`NEXT_PUBLIC_` env var in a `"use client"` file, and nothing from `firebase/admin` imported into client code.
+- **The user ID always comes from `requireUser()` / `getCurrentUser()`, never from client input.** Server actions are public endpoints, and any argument can be forged. Every function in `lib/actions/` starts with `requireUser()`.
+- The Vapi webhook can't carry a session, so it checks `x-vapi-secret` (when `VAPI_WEBHOOK_SECRET` is set) and that `userid` is a real user.
+- AI output is validated with zod before it is stored.
+- Secrets never reach the client: no non-`NEXT_PUBLIC_` env var in a `"use client"` file, and nothing from `db/` or `lib/auth/index.ts` imported into client code (both are `server-only`).
 - Never log secrets, tokens, session cookies or full request bodies or transcripts.
 
 ## 7. Proving changes and test evidence
@@ -177,7 +179,7 @@ The project MCP servers in `.mcp.json` are `context7` (current library docs), `s
 **Multi-agent rules**
 - One worktree and one branch per task and per agent. Never touch another agent's worktree, branch or uncommitted work.
 - Before starting, skim open PRs (`gh pr list`, `gh pr diff <n> --name-only`). Independent edits to the same file are fine in your own worktree. Ask when changes conflict in behavior, depend on unfinished work, or ownership is unclear.
-- Worktrees do not isolate ports or the Firebase project. Confirm a dev-server port answers your process (`lsof -i :3000`) before you trust it, and never run destructive data experiments against the shared Firestore.
+- Worktrees do not isolate ports or the database. Confirm a dev-server port answers your process (`lsof -i :3000`) before you trust it. Local work uses the Neon `dev` branch; never run experiments against `main` (production). For risky schema work, create a throwaway Neon branch.
 - If you can't resolve a conflict confidently, stop and report instead of guessing.
 
 **Shipping a task (only when asked to ship):** keep the change to the task and run the checks. Commit with a clear message, rebase onto `origin/master` and re-run the checks, then push your branch. Open the PR with what changed, how it was tested (back each claim with evidence), before/after proof, and risks. Do not merge unless told to.

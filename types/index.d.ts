@@ -1,42 +1,12 @@
-interface Feedback {
-  id: string;
-  interviewId: string;
-  totalScore: number;
-  categoryScores: Array<{
-    name: string;
-    score: number;
-    comment: string;
-  }>;
-  strengths: string[];
-  areasForImprovement: string[];
-  finalAssessment: string;
-  createdAt: string;
-}
-
-interface Interview {
-  id: string;
-  role: string;
-  level: string;
-  questions: string[];
-  techstack: string[];
-  createdAt: string;
-  userId: string;
-  type: string;
-  finalized: boolean;
-}
-
-interface CreateFeedbackParams {
-  interviewId: string;
-  userId: string;
-  transcript: { role: string; content: string }[];
-  feedbackId?: string;
-}
-
-interface User {
-  name: string;
-  email: string;
-  id: string;
-}
+/**
+ * SOURCE OF TRUTH KEYWORDS: Interview, Feedback, User, domain types, inferred types, drizzle select types
+ * WHAT:  Global aliases for the database row types, inferred from db/schema.ts.
+ * WHY:   The schema is the single source of truth; these aliases keep existing global usages working.
+ * WHERE: Anywhere in the app (ambient, no import needed).
+ */
+type Interview = import("@/db/schema").Interview;
+type Feedback = import("@/db/schema").Feedback;
+type User = import("@/db/schema").User;
 
 interface InterviewCardProps {
   id?: string;
@@ -44,7 +14,7 @@ interface InterviewCardProps {
   role: string;
   type: string;
   techstack: string[];
-  createdAt?: string;
+  createdAt?: Date | string;
 }
 
 interface AgentProps {
@@ -59,28 +29,6 @@ interface AgentProps {
 interface RouteParams {
   params: Promise<Record<string, string>>;
   searchParams: Promise<Record<string, string>>;
-}
-
-interface GetFeedbackByInterviewIdParams {
-  interviewId: string;
-  userId: string;
-}
-
-interface GetLatestInterviewsParams {
-  userId: string;
-  limit?: number;
-}
-
-interface SignInParams {
-  email: string;
-  idToken: string;
-}
-
-interface SignUpParams {
-  uid: string;
-  name: string;
-  email: string;
-  password: string;
 }
 
 type FormType = "sign-in" | "sign-up";

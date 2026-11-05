@@ -1,5 +1,4 @@
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { getFeedbackByInterviewId, getInterviewsById } from "@/lib/actions/general.action";
+import { getFeedbackByInterviewId, getInterviewById } from "@/lib/actions/general.action";
 import { redirect } from "next/navigation";
 import React from 'react'
 import { Button } from "@/components/ui/button"
@@ -10,18 +9,11 @@ import dayjs from "dayjs";
 const page = async ({ params }: RouteParams) => {
 
   const { id } = await params;
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
-
-  const interview = await getInterviewsById(id);
+  const interview = await getInterviewById(id);
 
   if(!interview) redirect("/dashboard");
 
-  const feedback = await getFeedbackByInterviewId({
-    interviewId: id,
-    userId: user.id,
-
-  })
+  const feedback = await getFeedbackByInterviewId(id)
 
   // console.log(feedback);
 
