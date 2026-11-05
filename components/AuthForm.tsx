@@ -82,7 +82,7 @@ const AuthForm = ({ type }: {type: FormType}) => {
         })
 
         toast.success("Signed In successfully.")
-        router.push("/");
+        router.push("/dashboard");
       }
     } catch(error) {
         console.log(error);
