@@ -116,6 +116,7 @@ The questions are read aloud, so the generation prompt forbids special character
 | Feedback AI output schema | `feedbackSchema` (zod) in `constants/index.ts` |
 | Tech name → icon mapping | `mappings` in `constants/index.ts` + `getTechLogoUrl` / `getTechLogos` in `lib/utils.ts` |
 | Landing page copy and demo data | `constants/landing.ts` (no invented stats or testimonials) |
+| Hero product film (timeline, clock, sound, scene) | `components/landing/demo/` (`script.ts` owns every timestamp; `Scene` is a pure function of `t`; copy in `heroFilm` in `constants/landing.ts`) |
 | Animations | `components/motion/*` (`MotionProvider` with LazyMotion, `Reveal`, `CountUp`). Use `m.*` components, not `motion.*`. |
 | Interview cover images | `interviewCovers` + `getRandomInterviewCover` |
 | Theme colors, shared CSS classes | `app/globals.css` (`@theme`, `@layer components`, `@utility`) |

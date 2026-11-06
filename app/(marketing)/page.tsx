@@ -48,7 +48,7 @@ const mockups: Record<(typeof features)[number]["id"], ReactNode> = {
 export default function LandingPage() {
   return (
     <>
-      <Hero {...hero} demo={demoInterview} />
+      <Hero {...hero} />
       <TechMarquee title="Practice for the stack you work in" tech={marqueeTech} />
       <HowItWorks steps={steps} />
 
