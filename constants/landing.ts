@@ -76,7 +76,7 @@ export const feedbackCategories = feedbackSchema.shape.categoryScores.items.map(
 
 export const demoInterview = {
   role: "Frontend Developer",
-  level: "Junior",
+  level: "Mid-level",
   type: "Technical",
   techstack: ["React", "TypeScript", "Next.js"],
   questions: [
@@ -110,6 +110,36 @@ export const demoInterview = {
     { role: "Frontend Developer", type: "Technical", date: "Mon", score: 71, cover: "/covers/spotify.png" },
     { role: "Full Stack Engineer", type: "Mixed", date: "Last week", score: 64, cover: "/covers/reddit.png" },
   ],
+} as const;
+
+/** The hero film's story. Timing lives in components/landing/demo/script.ts; the words live here. */
+export const heroFilm = {
+  candidate: "Roobi",
+  interviewId: "k7f2q9",
+  techstack: "React, TypeScript, Next.js",
+  questionCount: 5,
+  date: "Nov 6, 2026, 4:12 PM",
+  chapters: ["Pick the role", "Start the call", "Talk it through", "Follow-ups", "Your score", "What to fix"],
+  captions: [
+    "Name the job. That's the whole setup.",
+    "Questions written for your role and stack.",
+    "It asks out loud. You answer out loud.",
+    "It follows up, like a real interviewer would.",
+    "Hang up, and get a score out of 100.",
+    "Know exactly what to fix before the real one.",
+  ],
+  strengths: [
+    "Clear on what makes React re-render",
+    "Knew when memo and useCallback help",
+    "Calm, structured answers",
+  ],
+  improvements: [
+    "Back answers with a real project",
+    "Explain the cost of memoising everything",
+    "Mention the Profiler for finding re-renders",
+  ],
+  ariaLabel:
+    "Demo of a HireonAI interview: typing Frontend Developer into the setup form, picking Mid-level and a React, TypeScript and Next.js stack, starting a voice call where the AI interviewer asks about React re-renders, the candidate answers out loud with live captions, the interviewer asks a follow-up, and after hanging up the feedback page scores the interview 82 out of 100 across five areas with strengths and areas to improve.",
 } as const;
 
 export const features = [
